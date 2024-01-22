@@ -43,9 +43,6 @@
 
 /**
  * @brief   Entry point of the partition
- *
- * @param interface A Structure provided by Pip describing the memory
- *                  layout.
  */
 void
 start(void)
