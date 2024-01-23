@@ -87,6 +87,32 @@
  */
 #define ROOT_BLOCK_ID_2 ((void *)0x2000f1be)
 
+static void *root_kern_addr;
+static void *child_pd_addr;
+static void *child_kern_addr;
+static void *child_stack_addr;
+static void *child_vidt_addr;
+static void *child_ctx_addr;
+static void *child_itf_addr;
+static void *child_rend_addr;
+static void *child_text_addr;
+static void *child_fend_addr;
+
+static void *root_kern_id;
+static void *child_pd_id;
+static void *child_kern_id;
+static void *child_block0_id;
+static void *child_block1_id;
+static void *child_rend_id;
+static void *child_block2_id;
+static void *child_fend_id;
+
+static void *child_block0_idc;
+static void *child_block1_idc;
+static void *child_block2_idc;
+
+static basicContext_t root_ctx;
+
 /**
  * @brief   Fill memory with a constant byte
  *
@@ -109,43 +135,13 @@ memset(void *s, int c, size_t n)
 }
 
 /**
- * @brief   Entry point of the partition
+ * @brief   Initialize the root partition memory
  *
- * @param interface A Structure provided by Pip describing the memory
- *                  layout.
+ * @param interface A structure describing the memory layout
  */
-void
-start(interface_t *interface)
+static unsigned
+root_memory_init(interface_t *interface)
 {
-	void *root_kern_addr;
-	void *child_pd_addr;
-	void *child_kern_addr;
-	void *child_stack_addr;
-	void *child_vidt_addr;
-	void *child_ctx_addr;
-	void *child_itf_addr;
-	void *child_rend_addr;
-	void *child_text_addr;
-	void *child_fend_addr;
-
-	void *root_kern_id;
-	void *child_pd_id;
-	void *child_kern_id;
-	void *child_block0_id;
-	void *child_block1_id;
-	void *child_rend_id;
-	void *child_block2_id;
-	void *child_fend_id;
-
-	void *child_block0_idc;
-	void *child_block1_idc;
-	void *child_block2_idc;
-
-	basicContext_t root_ctx;
-	size_t i;
-
-	puts(PROGNAME": launching\n");
-
 	root_kern_addr = (void *)ROUND((uintptr_t)0x20009000, 512);
 	child_pd_addr = (char *)root_kern_addr + 512;
 	child_kern_addr = (char *)child_pd_addr + 512;
@@ -187,92 +183,235 @@ start(interface_t *interface)
 	/* TODO: to be corrected once the bug in findBlock has been fixed */
 	if ((root_kern_id = Pip_cutMemoryBlock(ROOT_BLOCK_ID_1, root_kern_addr, -1)) == NULL) {
 		puts(PROGNAME": failed to cut a memory block\n");
-		goto error;
+		return 0;
 	}
 
 	if ((child_pd_id = Pip_cutMemoryBlock(root_kern_id, child_pd_addr, -1)) == NULL) {
 		puts(PROGNAME": failed to cut a memory block\n");
-		goto error;
+		return 0;
 	}
 
 	if (!Pip_prepare(interface->partDescBlockId, 8, root_kern_id)) {
 		puts(PROGNAME": failed to prepare the root kernel structure\n");
-		goto error;
+		return 0;
 	}
 
+	return 1;
+}
+
+/**
+ * @brief   Create a child partition
+ */
+static unsigned
+root_partition_create(void)
+{
 	if ((child_kern_id = Pip_cutMemoryBlock(child_pd_id, child_kern_addr, -1)) == NULL) {
 		puts(PROGNAME": failed to cut a memory block\n");
-		goto error;
+		return 0;
 	}
 
 	if ((child_block0_id = Pip_cutMemoryBlock(child_kern_id, child_stack_addr, -1)) == NULL) {
 		puts(PROGNAME": failed to cut a memory block\n");
-		goto error;
+		return 0;
 	}
 
 	if ((child_block1_id = Pip_cutMemoryBlock(child_block0_id, child_ctx_addr, -1)) == NULL) {
 		puts(PROGNAME": failed to cut a memory block\n");
-		goto error;
+		return 0;
 	}
 
 	if ((child_rend_id = Pip_cutMemoryBlock(child_block1_id, child_rend_addr, -1)) == NULL) {
 		puts(PROGNAME": failed to cut a memory block\n");
-		goto error;
+		return 0;
 	}
 
 	/* TODO: to be corrected once the bug in findBlock has been fixed */
 	if ((child_block2_id = Pip_cutMemoryBlock(ROOT_BLOCK_ID_2, child_text_addr, -1)) == NULL) {
 		puts(PROGNAME": failed to cut a memory block\n");
-		goto error;
+		return 0;
 	}
 
 	if ((child_fend_id = Pip_cutMemoryBlock(child_block2_id, child_fend_addr, -1)) == NULL) {
 		puts(PROGNAME": failed to cut a memory block\n");
-		goto error;
+		return 0;
 	}
 
 	if (!Pip_createPartition(child_pd_id)) {
 		puts(PROGNAME": failed to create the child partition\n");
-		goto error;
+		return 0;
 	}
 
 	if (!Pip_prepare(child_pd_id, 8, child_kern_id)) {
 		puts(PROGNAME": failed to prepare the child kernel structure\n");
-		goto error;
+		return 0;
 	}
 
 	if ((child_block0_idc = Pip_addMemoryBlock(child_pd_id, child_block0_id, 1, 1, 0)) == NULL) {
 		puts(PROGNAME": failed to add a memory block to the child\n");
-		goto error;
+		return 0;
 	}
 
 	if ((child_block1_idc = Pip_addMemoryBlock(child_pd_id, child_block1_id, 1, 1, 0)) == NULL) {
 		puts(PROGNAME": failed to add a memory block to the child\n");
-		goto error;
+		return 0;
 	}
 
 	if ((child_block2_idc = Pip_addMemoryBlock(child_pd_id, child_block2_id, 1, 0, 1)) == NULL) {
 		puts(PROGNAME": failed to add a memory block to the child\n");
-		goto error;
+		return 0;
 	}
 
 	if (!Pip_mapMPU(child_pd_id, child_block0_idc, 0)) {
 		puts(PROGNAME": failed to map a block to the child partition\n");
-		goto error;
+		return 0;
 	}
 
 	if (!Pip_mapMPU(child_pd_id, child_block1_idc, 1)) {
 		puts(PROGNAME": failed to map a block to the child partition\n");
-		goto error;
+		return 0;
 	}
 
 	if (!Pip_mapMPU(child_pd_id, child_block2_idc, 2)) {
 		puts(PROGNAME": failed to map a block to the child partition\n");
-		goto error;
+		return 0;
 	}
 
 	if (!Pip_setVIDT(child_pd_id, (void *)child_vidt_addr)) {
 		puts(PROGNAME": failed to set the VIDT of the child\n");
+		return 0;
+	}
+
+	return 1;
+}
+
+/**
+ * @brief   Delete a child partition
+ */
+static unsigned
+root_partition_delete(void)
+{
+	if (!Pip_setVIDT(child_pd_id, NULL)) {
+		puts(PROGNAME": failed to set the VIDT of the child\n");
+		return 0;
+	}
+
+	if (!Pip_mapMPU(child_pd_id, NULL, 2)) {
+		puts(PROGNAME": failed to unmap a block to the child partition\n");
+		return 0;
+	}
+
+	if (!Pip_mapMPU(child_pd_id, NULL, 1)) {
+		puts(PROGNAME": failed to unmap a block to the child partition\n");
+		return 0;
+	}
+
+	if (!Pip_mapMPU(child_pd_id, NULL, 0)) {
+		puts(PROGNAME": failed to unmap a block to the child partition\n");
+		return 0;
+	}
+
+	if (!Pip_removeMemoryBlock(child_block2_id)) {
+		puts(PROGNAME": failed to remove a memory block from the child partition\n");
+		return 0;
+	}
+
+	if (!Pip_removeMemoryBlock(child_block1_id)) {
+		puts(PROGNAME": failed to remove a memory block from the child partition\n");
+		return 0;
+	}
+
+	if (!Pip_removeMemoryBlock(child_block0_id)) {
+		puts(PROGNAME": failed to remove a memory block from the child partition\n");
+		return 0;
+	}
+
+	if (Pip_collect(child_pd_id) == NULL) {
+		puts(PROGNAME": failed to collect a kernel structure from the child\n");
+		return 0;
+	}
+
+	if (!Pip_deletePartition(child_pd_id)) {
+		puts(PROGNAME": failed to delete the child partition\n");
+		return 0;
+	}
+
+	if (Pip_mergeMemoryBlocks(child_block2_id, child_fend_id, -1) == NULL) {
+		puts(PROGNAME": failed to merge a memory block\n");
+		return 0;
+	}
+
+	/* TODO: to be corrected once the bug in findBlock has been fixed */
+	if (Pip_mergeMemoryBlocks(ROOT_BLOCK_ID_2, child_block2_id, -1) == NULL) {
+		puts(PROGNAME": failed to merge a memory block\n");
+		return 0;
+	}
+
+	if (Pip_mergeMemoryBlocks(child_block1_id, child_rend_id, -1) == NULL) {
+		puts(PROGNAME": failed to merge a memory block\n");
+		return 0;
+	}
+
+	if (Pip_mergeMemoryBlocks(child_block0_id, child_block1_id, -1) == NULL) {
+		puts(PROGNAME": failed to merge a memory block\n");
+		return 0;
+	}
+
+	if (Pip_mergeMemoryBlocks(child_kern_id, child_block0_id, -1) == NULL) {
+		puts(PROGNAME": failed to merge a memory block\n");
+		return 0;
+	}
+
+	if (Pip_mergeMemoryBlocks(child_pd_id, child_kern_id, -1) == NULL) {
+		puts(PROGNAME": failed to merge a memory block\n");
+		return 0;
+	}
+
+	return 1;
+}
+
+/**
+ * @brief   Clean up the root partition memory
+ */
+static unsigned
+root_memory_cleanup(interface_t *interface)
+{
+	if (Pip_collect(interface->partDescBlockId) == NULL) {
+		puts(PROGNAME": failed to collect a kernel structure from the root\n");
+		return 0;
+	}
+
+	if (Pip_mergeMemoryBlocks(root_kern_id, child_pd_id, -1) == NULL) {
+		puts(PROGNAME": failed to merge a memory block\n");
+		return 0;
+	}
+
+	/* TODO: to be corrected once the bug in findBlock has been fixed */
+	if (Pip_mergeMemoryBlocks(ROOT_BLOCK_ID_1, root_kern_id, -1) == NULL) {
+		puts(PROGNAME": failed to merge a memory block\n");
+		return 0;
+	}
+
+	return 1;
+}
+
+/**
+ * @brief   Entry point of the partition
+ *
+ * @param interface A Structure provided by Pip describing the memory
+ *                  layout.
+ */
+void
+start(interface_t *interface)
+{
+	size_t i;
+
+	puts(PROGNAME": launching\n");
+
+	if (root_memory_init(interface) == 0) {
+		goto error;
+	}
+
+	if (root_partition_create() == 0) {
 		goto error;
 	}
 
@@ -282,95 +421,11 @@ start(interface_t *interface)
 		Pip_yield(child_pd_id, 0, 0, 1, 1);
 	}
 
-	if (!Pip_setVIDT(child_pd_id, NULL)) {
-		puts(PROGNAME": failed to set the VIDT of the child\n");
+	if (root_partition_delete() == 0) {
 		goto error;
 	}
 
-	if (!Pip_mapMPU(child_pd_id, NULL, 2)) {
-		puts(PROGNAME": failed to unmap a block to the child partition\n");
-		goto error;
-	}
-
-	if (!Pip_mapMPU(child_pd_id, NULL, 1)) {
-		puts(PROGNAME": failed to unmap a block to the child partition\n");
-		goto error;
-	}
-
-	if (!Pip_mapMPU(child_pd_id, NULL, 0)) {
-		puts(PROGNAME": failed to unmap a block to the child partition\n");
-		goto error;
-	}
-
-	if (!Pip_removeMemoryBlock(child_block2_id)) {
-		puts(PROGNAME": failed to remove a memory block from the child partition\n");
-		goto error;
-	}
-
-	if (!Pip_removeMemoryBlock(child_block1_id)) {
-		puts(PROGNAME": failed to remove a memory block from the child partition\n");
-		goto error;
-	}
-
-	if (!Pip_removeMemoryBlock(child_block0_id)) {
-		puts(PROGNAME": failed to remove a memory block from the child partition\n");
-		goto error;
-	}
-
-	if (Pip_collect(child_pd_id) == NULL) {
-		puts(PROGNAME": failed to collect a kernel structure from the child\n");
-		goto error;
-	}
-
-	if (!Pip_deletePartition(child_pd_id)) {
-		puts(PROGNAME": failed to delete the child partition\n");
-		goto error;
-	}
-
-	if (Pip_mergeMemoryBlocks(child_block2_id, child_fend_id, -1) == NULL) {
-		puts(PROGNAME": failed to merge a memory block\n");
-		goto error;
-	}
-
-	/* TODO: to be corrected once the bug in findBlock has been fixed */
-	if (Pip_mergeMemoryBlocks(ROOT_BLOCK_ID_2, child_block2_id, -1) == NULL) {
-		puts(PROGNAME": failed to merge a memory block\n");
-		goto error;
-	}
-
-	if (Pip_mergeMemoryBlocks(child_block1_id, child_rend_id, -1) == NULL) {
-		puts(PROGNAME": failed to merge a memory block\n");
-		goto error;
-	}
-
-	if (Pip_mergeMemoryBlocks(child_block0_id, child_block1_id, -1) == NULL) {
-		puts(PROGNAME": failed to merge a memory block\n");
-		goto error;
-	}
-
-	if (Pip_mergeMemoryBlocks(child_kern_id, child_block0_id, -1) == NULL) {
-		puts(PROGNAME": failed to merge a memory block\n");
-		goto error;
-	}
-
-	if (Pip_mergeMemoryBlocks(child_pd_id, child_kern_id, -1) == NULL) {
-		puts(PROGNAME": failed to merge a memory block\n");
-		goto error;
-	}
-
-	if (Pip_collect(interface->partDescBlockId) == NULL) {
-		puts(PROGNAME": failed to collect a kernel structure from the root\n");
-		goto error;
-	}
-
-	if (Pip_mergeMemoryBlocks(root_kern_id, child_pd_id, -1) == NULL) {
-		puts(PROGNAME": failed to merge a memory block\n");
-		goto error;
-	}
-
-	/* TODO: to be corrected once the bug in findBlock has been fixed */
-	if (Pip_mergeMemoryBlocks(ROOT_BLOCK_ID_1, root_kern_id, -1) == NULL) {
-		puts(PROGNAME": failed to merge a memory block\n");
+	if (root_memory_cleanup(interface) == 0) {
 		goto error;
 	}
 
