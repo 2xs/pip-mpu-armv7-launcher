@@ -73,43 +73,45 @@ SYMNAMES       += __romRamEnd
 
 RELSECTIONS     = .rel.rom.ram
 
-all: child.bin
+TARGET          = child
 
-child.bin: child-raw.bin padding.bin
+all: $(TARGET).bin
+
+$(TARGET).bin: $(TARGET)-raw.bin padding.bin
 	cat $^ > $@
 
-child-raw.bin: crt0.bin symbols.bin relocation.bin partition.bin
+$(TARGET)-raw.bin: crt0.bin symbols.bin relocation.bin partition.bin
 	cat $^ > $@
 
 crt0.bin: relocator/crt0.c relocator/crt0.h relocator/link.ld relocator/Makefile
 	make -C relocator realclean all
 	cp relocator/$@ $@
 
-symbols.bin: child.elf relocator/symbols.py
+symbols.bin: $(TARGET).elf relocator/symbols.py
 	exec relocator/symbols.py $< $@ $(SYMNAMES)
 
-relocation.bin: child.elf relocator/relocation.py
+relocation.bin: $(TARGET).elf relocator/relocation.py
 	exec relocator/relocation.py $< $@ $(RELSECTIONS)
 
-partition.bin: child.elf
+partition.bin: $(TARGET).elf
 	$(OBJCOPY) $(OBJCOPYFLAGS) $< $@
 	@chmod 644 $@
 
-child.elf: main.o
+$(TARGET).elf: main.o
 	$(LD) $(LDFLAGS) $^ -o $@
 
 main.o: main.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-padding.bin: child-raw.bin relocator/padding.py
+padding.bin: $(TARGET)-raw.bin relocator/padding.py
 	exec relocator/padding.py $< $@
 
 clean:
-	$(RM) main.o child-raw.bin padding.bin crt0.bin symbols.bin relocation.bin partition.bin
+	$(RM) main.o $(TARGET)-raw.bin padding.bin crt0.bin symbols.bin relocation.bin partition.bin
 	make -C relocator clean
 
 realclean: clean
-	$(RM) child.elf child.bin
+	$(RM) $(TARGET).elf $(TARGET).bin
 	make -C relocator realclean
 
 .PHONY: all clean realclean

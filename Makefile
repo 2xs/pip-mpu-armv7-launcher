@@ -39,14 +39,16 @@ OBJCOPYFLAGS   += --output-target=elf32-littlearm
 OBJCOPYFLAGS   += --wildcard
 OBJCOPYFLAGS   += --remove-section '*'
 
-all: pip-mpu-launcher.elf
+TARGET          = pip-mpu-launcher
 
-pip-mpu-launcher.elf: pip-mpu-launcher.bin
+all: $(TARGET).elf
+
+$(TARGET).elf: $(TARGET).bin
 # objcopy needs the output file not to be empty...
 	@printf '\0' > $@
 	$(OBJCOPY) $(OBJCOPYFLAGS) --add-section .text=$< $@
 
-pip-mpu-launcher.bin: root.bin child.bin
+$(TARGET).bin: root.bin child.bin
 	cat $^ > $@
 
 root.bin: root
@@ -63,7 +65,7 @@ clean:
 	$(MAKE) -C child clean
 
 realclean: clean
-	$(RM) pip-mpu-launcher.elf pip-mpu-launcher.bin
+	$(RM) $(TARGET).elf $(TARGET).bin
 	$(MAKE) -C root realclean
 	$(MAKE) -C child realclean
 
