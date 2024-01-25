@@ -34,10 +34,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "context.h"
-#include "interface.h"
+#include "pip-mpu.h"
 #include "semihosting.h"
-#include "svc.h"
 
 /**
  * @define PROGNAME

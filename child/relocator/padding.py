@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 ###############################################################################
 #  © Université de Lille, The Pip Development Team (2015-2024)                #
 #                                                                             #
@@ -31,85 +32,40 @@
 #  knowledge of the CeCILL license and that you accept its terms.             #
 ###############################################################################
 
-PREFIX          = arm-none-eabi-
-CC              = $(PREFIX)gcc
-LD              = $(PREFIX)gcc
-OBJCOPY         = $(PREFIX)objcopy
 
-CFLAGS          = -Wall
-CFLAGS         += -Wextra
-CFLAGS         += -Werror
-CFLAGS         += -mthumb
-CFLAGS         += -mcpu=cortex-m4
-CFLAGS         += -mfloat-abi=hard
-CFLAGS         += -mfpu=fpv4-sp-d16
-CFLAGS         += -msingle-pic-base
-CFLAGS         += -mpic-register=sl
-CFLAGS         += -mno-pic-data-is-text-relative
-CFLAGS         += -fPIC
-CFLAGS         += -ffreestanding
-CFLAGS         += -Os
-CFLAGS         += -Wno-unused-parameter
-CFLAGS         += -Irelocator
-CFLAGS         += -I../include
+"""padding script"""
 
-LDFLAGS         = -nostartfiles
-LDFLAGS        += -nodefaultlibs
-LDFLAGS        += -nolibc
-LDFLAGS        += -nostdlib
-LDFLAGS        += -Tlink.ld
-LDFLAGS        += -Wl,-q
-LDFLAGS        += -Wl,--no-warn-rwx-segments
 
-OBJCOPYFLAGS    = --input-target=elf32-littlearm
-OBJCOPYFLAGS   += --output-target=binary
+import pathlib, sys
 
-SYMNAMES        = start
-SYMNAMES       += __romSize
-SYMNAMES       += __romRamSize
-SYMNAMES       += __ramSize
-SYMNAMES       += __gotSize
-SYMNAMES       += __romRamEnd
 
-RELSECTIONS     = .rel.rom.ram
+# The default value used for padding. This value corresponds to the
+# default state of non-volatile NAND flash memories.
+PADDING_VALUE = b'\xff'
 
-all: child.bin
 
-child.bin: child-raw.bin padding.bin
-	cat $^ > $@
+# The Pip binary size must be a multiple of this value. It corresponds
+# to the minimum alignment required by the MPU of the ARMv7-M
+# architecture.
+MPU_ALIGNMENT = 32
 
-child-raw.bin: crt0.bin symbols.bin relocation.bin partition.bin
-	cat $^ > $@
 
-crt0.bin: relocator/crt0.c relocator/crt0.h relocator/link.ld relocator/Makefile
-	make -C relocator realclean all
-	cp relocator/$@ $@
+def usage():
+    """Print how to to use this script and exit"""
+    print(f'usage: {sys.argv[0]} BINARY PADDING')
+    sys.exit(1)
 
-symbols.bin: child.elf relocator/symbols.py
-	exec relocator/symbols.py $< $@ $(SYMNAMES)
 
-relocation.bin: child.elf relocator/relocation.py
-	exec relocator/relocation.py $< $@ $(RELSECTIONS)
+def round(x, y):
+    """Round x to the next power of two y"""
+    return ((x + y - 1) & ~(y - 1))
 
-partition.bin: child.elf
-	$(OBJCOPY) $(OBJCOPYFLAGS) $< $@
-	@chmod 644 $@
 
-child.elf: main.o
-	$(LD) $(LDFLAGS) $^ -o $@
-
-main.o: main.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
-padding.bin: child-raw.bin relocator/padding.py
-	exec relocator/padding.py $< $@
-
-clean:
-	$(RM) main.o child-raw.bin padding.bin crt0.bin symbols.bin relocation.bin partition.bin
-	make -C relocator clean
-
-realclean: clean
-	$(RM) child.elf child.bin
-	make -C relocator realclean
-
-.PHONY: all clean realclean
+if __name__ == '__main__':
+    if len(sys.argv) >= 3:
+        size = pathlib.Path(sys.argv[1]).stat().st_size
+        padding = round(size, MPU_ALIGNMENT) - size
+        with open(sys.argv[2], 'wb') as f:
+            f.write(padding * PADDING_VALUE)
+        sys.exit(0)
+    usage()

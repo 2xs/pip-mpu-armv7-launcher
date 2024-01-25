@@ -31,30 +31,23 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-#include "pip-mpu.h"
-#include "semihosting.h"
+OUTPUT_FORMAT(
+	"elf32-littlearm",
+	"elf32-littlearm",
+	"elf32-littlearm"
+)
 
-/**
- * @define PROGNAME
- *
- * @brief  The name of the partition
- */
-#define PROGNAME "child"
+OUTPUT_ARCH(arm)
 
-/**
- * @brief   Entry point of the partition
- */
-void
-start(void)
+ENTRY(_start)
+
+SECTIONS
 {
-	puts(PROGNAME": 3\n");
-	Pip_yield(0, 0, 0, 1, 1);
-
-	puts(PROGNAME": 2\n");
-	Pip_yield(0, 0, 0, 1, 1);
-
-	puts(PROGNAME": 1\n");
-	Pip_yield(0, 0, 0, 1, 1);
-
-	for (;;);
+	.text :
+	{
+		. = ALIGN( 4 ) ;
+		*(.text*)
+		. = ALIGN( 4 ) ;
+		__metadataOff = . ;
+	}
 }

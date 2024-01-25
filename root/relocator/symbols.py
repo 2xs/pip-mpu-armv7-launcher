@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 ###############################################################################
 #  © Université de Lille, The Pip Development Team (2015-2024)                #
 #                                                                             #
@@ -31,85 +32,59 @@
 #  knowledge of the CeCILL license and that you accept its terms.             #
 ###############################################################################
 
-PREFIX          = arm-none-eabi-
-CC              = $(PREFIX)gcc
-LD              = $(PREFIX)gcc
-OBJCOPY         = $(PREFIX)objcopy
 
-CFLAGS          = -Wall
-CFLAGS         += -Wextra
-CFLAGS         += -Werror
-CFLAGS         += -mthumb
-CFLAGS         += -mcpu=cortex-m4
-CFLAGS         += -mfloat-abi=hard
-CFLAGS         += -mfpu=fpv4-sp-d16
-CFLAGS         += -msingle-pic-base
-CFLAGS         += -mpic-register=sl
-CFLAGS         += -mno-pic-data-is-text-relative
-CFLAGS         += -fPIC
-CFLAGS         += -ffreestanding
-CFLAGS         += -Os
-CFLAGS         += -Wno-unused-parameter
-CFLAGS         += -Irelocator
-CFLAGS         += -I../include
+"""symbols script"""
 
-LDFLAGS         = -nostartfiles
-LDFLAGS        += -nodefaultlibs
-LDFLAGS        += -nolibc
-LDFLAGS        += -nostdlib
-LDFLAGS        += -Tlink.ld
-LDFLAGS        += -Wl,-q
-LDFLAGS        += -Wl,--no-warn-rwx-segments
 
-OBJCOPYFLAGS    = --input-target=elf32-littlearm
-OBJCOPYFLAGS   += --output-target=binary
+import sys
 
-SYMNAMES        = start
-SYMNAMES       += __romSize
-SYMNAMES       += __romRamSize
-SYMNAMES       += __ramSize
-SYMNAMES       += __gotSize
-SYMNAMES       += __romRamEnd
 
-RELSECTIONS     = .rel.rom.ram
+from elftools.elf.elffile import ELFFile
+from elftools.elf.sections import SymbolTableSection
 
-all: child.bin
 
-child.bin: child-raw.bin padding.bin
-	cat $^ > $@
+def usage():
+    """Print how to to use the script and exit"""
+    print(f'usage: {sys.argv[0]} ELF OUTPUT SYMBOL...')
+    sys.exit(1)
 
-child-raw.bin: crt0.bin symbols.bin relocation.bin partition.bin
-	cat $^ > $@
 
-crt0.bin: relocator/crt0.c relocator/crt0.h relocator/link.ld relocator/Makefile
-	make -C relocator realclean all
-	cp relocator/$@ $@
+def die(message):
+    """Print error message and exit"""
+    print(f'{sys.argv[0]}: {message}', file=sys.stderr)
+    sys.exit(1)
 
-symbols.bin: child.elf relocator/symbols.py
-	exec relocator/symbols.py $< $@ $(SYMNAMES)
 
-relocation.bin: child.elf relocator/relocation.py
-	exec relocator/relocation.py $< $@ $(RELSECTIONS)
+def to_word(x):
+    """Convert a python integer to a LE 4-bytes bytearray"""
+    return x.to_bytes(4, byteorder='little')
 
-partition.bin: child.elf
-	$(OBJCOPY) $(OBJCOPYFLAGS) $< $@
-	@chmod 644 $@
 
-child.elf: main.o
-	$(LD) $(LDFLAGS) $^ -o $@
+def process_file(elf, symnames):
+    """Parse the symbol table sections to extract the st_value"""
+    sh = elf.get_section_by_name('.symtab')
+    if not sh:
+        die(f'.symtab: no section with this name found')
+    if not isinstance(sh, SymbolTableSection):
+        die(f'.symtab: is not a symbol table section')
+    if sh['sh_type'] != 'SHT_SYMTAB':
+        die(f'.symtab: is not a SHT_SYMTAB section')
+    xs = bytearray()
+    for symname in symnames:
+        symbols = sh.get_symbol_by_name(symname)
+        if not symbols:
+            die(f'.symtab: {symname}: no symbol with this name')
+        if len(symbols) > 1:
+            die(f'.symtab: {symname}: more than one symbol with this name')
+        xs += to_word(symbols[0].entry['st_value'])
+    return xs
 
-main.o: main.c
-	$(CC) $(CFLAGS) -c $< -o $@
 
-padding.bin: child-raw.bin relocator/padding.py
-	exec relocator/padding.py $< $@
-
-clean:
-	$(RM) main.o child-raw.bin padding.bin crt0.bin symbols.bin relocation.bin partition.bin
-	make -C relocator clean
-
-realclean: clean
-	$(RM) child.elf child.bin
-	make -C relocator realclean
-
-.PHONY: all clean realclean
+if __name__ == '__main__':
+    if len(sys.argv) >= 4:
+        with open(sys.argv[1], 'rb') as f:
+            xs = process_file(ELFFile(f), sys.argv[3:])
+        with open(sys.argv[2], 'wb') as f:
+            f.write(xs)
+        sys.exit(0)
+    usage()

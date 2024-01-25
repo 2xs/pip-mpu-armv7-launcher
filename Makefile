@@ -31,50 +31,40 @@
 #  knowledge of the CeCILL license and that you accept its terms.             #
 ###############################################################################
 
-PREFIX         := arm-none-eabi-
-OBJCOPY        := $(PREFIX)objcopy
+PREFIX          = arm-none-eabi-
+OBJCOPY         = $(PREFIX)objcopy
 
-BIN             = pip-mpu-launcher
+OBJCOPYFLAGS    = --input-target=binary
+OBJCOPYFLAGS   += --output-target=elf32-littlearm
+OBJCOPYFLAGS   += --wildcard
+OBJCOPYFLAGS   += --remove-section '*'
 
-all: $(BIN).elf
+all: pip-mpu-launcher.elf
 
-$(BIN).elf: $(BIN).bin
+pip-mpu-launcher.elf: pip-mpu-launcher.bin
 # objcopy needs the output file not to be empty...
 	@printf '\0' > $@
-	$(OBJCOPY)\
-          --input-target=binary\
-          --output-target=elf32-littlearm\
-          --wildcard\
-          --remove-section '*'\
-          --add-section .text=$<\
-        $@
+	$(OBJCOPY) $(OBJCOPYFLAGS) --add-section .text=$< $@
 
-$(BIN).bin: root.bin padding.bin child.bin
-	cat root.bin padding.bin child.bin > $@
+pip-mpu-launcher.bin: root.bin child.bin
+	cat $^ > $@
 
-padding.bin: root.bin
-	dd\
-          if=/dev/zero\
-          of=$@ bs=$$(((($$(wc -c < root.bin) + 32 - 1) & ~(32 - 1)) - $$(wc -c < root.bin)))\
-          count=1\
-          conv=fsync
-
-root.bin:
-	make -C root
+root.bin: root
+	make -C root all
 	cp root/$@ $@
 
-child.bin:
-	make -C child
+child.bin: child
+	make -C child all
 	cp child/$@ $@
 
-realclean: clean
-	$(RM) $(BIN).elf $(BIN).bin
-	$(MAKE) -C root realclean
-	$(MAKE) -C child realclean
-
 clean:
-	$(RM) root.bin padding.bin child.bin
+	$(RM) root.bin child.bin
 	$(MAKE) -C root clean
 	$(MAKE) -C child clean
 
-.PHONY: realclean clean
+realclean: clean
+	$(RM) pip-mpu-launcher.elf pip-mpu-launcher.bin
+	$(MAKE) -C root realclean
+	$(MAKE) -C child realclean
+
+.PHONY: all realclean clean

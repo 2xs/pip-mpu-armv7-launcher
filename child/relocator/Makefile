@@ -33,7 +33,7 @@
 
 PREFIX          = arm-none-eabi-
 CC              = $(PREFIX)gcc
-LD              = $(PREFIX)gcc
+LD              = $(PREFIX)ld
 OBJCOPY         = $(PREFIX)objcopy
 
 CFLAGS          = -Wall
@@ -41,75 +41,33 @@ CFLAGS         += -Wextra
 CFLAGS         += -Werror
 CFLAGS         += -mthumb
 CFLAGS         += -mcpu=cortex-m4
-CFLAGS         += -mfloat-abi=hard
-CFLAGS         += -mfpu=fpv4-sp-d16
-CFLAGS         += -msingle-pic-base
-CFLAGS         += -mpic-register=sl
-CFLAGS         += -mno-pic-data-is-text-relative
-CFLAGS         += -fPIC
 CFLAGS         += -ffreestanding
 CFLAGS         += -Os
-CFLAGS         += -Wno-unused-parameter
-CFLAGS         += -Irelocator
-CFLAGS         += -I../include
+CFLAGS         += -fno-toplevel-reorder
+CFLAGS         += -g3
+CFLAGS         += -ggdb
 
-LDFLAGS         = -nostartfiles
-LDFLAGS        += -nodefaultlibs
-LDFLAGS        += -nolibc
-LDFLAGS        += -nostdlib
-LDFLAGS        += -Tlink.ld
-LDFLAGS        += -Wl,-q
-LDFLAGS        += -Wl,--no-warn-rwx-segments
+LDFLAGS         = -Tlink.ld
 
 OBJCOPYFLAGS    = --input-target=elf32-littlearm
 OBJCOPYFLAGS   += --output-target=binary
 
-SYMNAMES        = start
-SYMNAMES       += __romSize
-SYMNAMES       += __romRamSize
-SYMNAMES       += __ramSize
-SYMNAMES       += __gotSize
-SYMNAMES       += __romRamEnd
+all: crt0.bin
 
-RELSECTIONS     = .rel.rom.ram
-
-all: child.bin
-
-child.bin: child-raw.bin padding.bin
-	cat $^ > $@
-
-child-raw.bin: crt0.bin symbols.bin relocation.bin partition.bin
-	cat $^ > $@
-
-crt0.bin: relocator/crt0.c relocator/crt0.h relocator/link.ld relocator/Makefile
-	make -C relocator realclean all
-	cp relocator/$@ $@
-
-symbols.bin: child.elf relocator/symbols.py
-	exec relocator/symbols.py $< $@ $(SYMNAMES)
-
-relocation.bin: child.elf relocator/relocation.py
-	exec relocator/relocation.py $< $@ $(RELSECTIONS)
-
-partition.bin: child.elf
+crt0.bin: crt0.elf
 	$(OBJCOPY) $(OBJCOPYFLAGS) $< $@
 	@chmod 644 $@
 
-child.elf: main.o
-	$(LD) $(LDFLAGS) $^ -o $@
+crt0.elf: crt0.o
+	$(LD) $(LDFLAGS) $< -o $@
 
-main.o: main.c
+crt0.o: crt0.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-padding.bin: child-raw.bin relocator/padding.py
-	exec relocator/padding.py $< $@
+realclean: clean
+	$(RM) crt0.elf crt0.bin
 
 clean:
-	$(RM) main.o child-raw.bin padding.bin crt0.bin symbols.bin relocation.bin partition.bin
-	make -C relocator clean
+	$(RM) crt0.o
 
-realclean: clean
-	$(RM) child.elf child.bin
-	make -C relocator realclean
-
-.PHONY: all clean realclean
+.PHONY: all realclean clean

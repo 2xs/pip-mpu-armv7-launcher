@@ -31,30 +31,80 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
+#ifndef __CRT0_H__
+#define __CRT0_H__
+
 #include "pip-mpu.h"
-#include "semihosting.h"
 
-/**
- * @define PROGNAME
- *
- * @brief  The name of the partition
- */
-#define PROGNAME "child"
-
-/**
- * @brief   Entry point of the partition
- */
-void
-start(void)
+typedef struct symbolTable_s
 {
-	puts(PROGNAME": 3\n");
-	Pip_yield(0, 0, 0, 1, 1);
+	/*!
+	 * \brief The entry point address within the
+	 *        partition.
+	 */
+	uint32_t entryPoint;
+	/*!
+	 * \brief The '.rom' section size, in bytes,
+	 *        of the partition.
+	 */
+	uint32_t romSecSize;
+	/*!
+	 * \brief The '.rom.ram' section size, in
+	 *        bytes, of the partition.
+	 */
+	uint32_t romRamSecSize;
+	/*!
+	 * \brief The '.ram' section size, in bytes,
+	 *        of the partition.
+	 */
+	uint32_t ramSecSize;
+	/*!
+	 * \brief The '.got' section size, in bytes,
+	 *        of the partition.
+	 */
+	uint32_t gotSecSize;
+	/*!
+	 * \brief The '.romRam' section end address
+	 *        of the partition.
+	 */
+	uint32_t romRamEnd;
+} symbolTable_t;
 
-	puts(PROGNAME": 2\n");
-	Pip_yield(0, 0, 0, 1, 1);
+typedef struct patchinfoEntry_s
+{
+	/*!
+	 * \brief The pointer offest to patch.
+	 */
+	uint32_t ptrOff;
+} patchinfoEntry_t;
 
-	puts(PROGNAME": 1\n");
-	Pip_yield(0, 0, 0, 1, 1);
+typedef struct patchinfoTable_s
+{
+	/*!
+	 * \brief The number of patchinfo entry.
+	 */
+	uint32_t entryNumber;
+	/*!
+	 * \brief The patchinfo entries.
+	 */
+	patchinfoEntry_t entries[];
+} patchinfoTable_t;
 
-	for (;;);
-}
+typedef struct metadata_s
+{
+	/*!
+	 * \brief The symbol table.
+	 */
+	symbolTable_t symbolTable;
+	/*!
+	 * \brief The patchinfo table.
+	 */
+	patchinfoTable_t patchinfoTable;
+} metadata_t;
+
+/*!
+ * \brief the offset of the metadata structure.
+ */
+extern uint32_t *__metadataOff;
+
+#endif /* __CRT0_H__ */

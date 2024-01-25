@@ -31,20 +31,10 @@
 #  knowledge of the CeCILL license and that you accept its terms.             #
 ###############################################################################
 
-PIP             =
-SEPARATE        =
-
-ifndef PIP
-$(error Variable PIP is not defined. Modify the Makefile and define the PIP variable as the path to binary of Pip.)
-endif
-
-ifndef SEPARATE
-$(error Variable SEPARATE is not defined. Modify the Makefile and define the SEPARATE variable as the path to the separate repository.)
-endif
-
-ARCH_DEPENDENT  = arm-none-eabi-
-CC              = $(ARCH_DEPENDENT)gcc
-LD              = $(ARCH_DEPENDENT)gcc
+PREFIX          = arm-none-eabi-
+CC              = $(PREFIX)gcc
+LD              = $(PREFIX)gcc
+OBJCOPY         = $(PREFIX)objcopy
 
 CFLAGS          = -Wall
 CFLAGS         += -Wextra
@@ -60,6 +50,7 @@ CFLAGS         += -fPIC
 CFLAGS         += -ffreestanding
 CFLAGS         += -Os
 CFLAGS         += -Wno-unused-parameter
+CFLAGS         += -Irelocator
 CFLAGS         += -I../include
 
 LDFLAGS         = -nostartfiles
@@ -70,24 +61,55 @@ LDFLAGS        += -Tlink.ld
 LDFLAGS        += -Wl,-q
 LDFLAGS        += -Wl,--no-warn-rwx-segments
 
-BIN             = root
+OBJCOPYFLAGS    = --input-target=elf32-littlearm
+OBJCOPYFLAGS   += --output-target=binary
 
-all: $(BIN).bin
+SYMNAMES        = start
+SYMNAMES       += __romSize
+SYMNAMES       += __romRamSize
+SYMNAMES       += __ramSize
+SYMNAMES       += __gotSize
+SYMNAMES       += __romRamEnd
 
-$(BIN).bin: $(BIN).elf
-	make -C $(SEPARATE) PIP=$(PIP) PARTITION=../pip-mpu-launcher/root/$< clean all
-	cp $(SEPARATE)/bin/pip+partition.bin $@
+RELSECTIONS     = .rel.rom.ram
 
-$(BIN).elf: main.o
+all: root.bin
+
+root.bin: root-raw.bin padding.bin
+	cat $^ > $@
+
+root-raw.bin: crt0.bin symbols.bin relocation.bin partition.bin
+	cat $^ > $@
+
+crt0.bin: relocator/crt0.c relocator/crt0.h relocator/link.ld relocator/Makefile
+	make -C relocator realclean all
+	cp relocator/$@ $@
+
+symbols.bin: root.elf relocator/symbols.py
+	exec relocator/symbols.py $< $@ $(SYMNAMES)
+
+relocation.bin: root.elf relocator/relocation.py
+	exec relocator/relocation.py $< $@ $(RELSECTIONS)
+
+partition.bin: root.elf
+	$(OBJCOPY) $(OBJCOPYFLAGS) $< $@
+	@chmod 644 $@
+
+root.elf: main.o
 	$(LD) $(LDFLAGS) $^ -o $@
 
 main.o: main.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+padding.bin: root-raw.bin relocator/padding.py
+	exec relocator/padding.py $< $@
+
 clean:
-	$(RM) main.o
+	$(RM) main.o root-raw.bin padding.bin crt0.bin symbols.bin relocation.bin partition.bin
+	make -C relocator clean
 
 realclean: clean
-	$(RM) $(BIN).elf $(BIN).bin
+	$(RM) root.elf root.bin
+	make -C relocator realclean
 
 .PHONY: all clean realclean
