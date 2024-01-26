@@ -59,7 +59,12 @@ LDFLAGS        += -nolibc
 LDFLAGS        += -nostdlib
 LDFLAGS        += -Tlink.ld
 LDFLAGS        += -Wl,-q
+# Disable the new linker warning '--warn-rwx-segments' introduced by
+# Binutils 2.39, which causes the following message: "warning:
+# $(TARGET).elf has a LOAD segment with RWX permissions".
+ifeq ($(shell $(PREFIX)ld --help | grep -q 'warn-rwx-segments'; echo $$?), 0)
 LDFLAGS        += -Wl,--no-warn-rwx-segments
+endif
 
 OBJCOPYFLAGS    = --input-target=elf32-littlearm
 OBJCOPYFLAGS   += --output-target=binary
