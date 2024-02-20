@@ -63,7 +63,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
-                    "name": "CRISTAL"
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -74,7 +82,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
-                    "name": "CRISTAL"
+                    "name": "Orange Labs Caen"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -85,7 +101,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
-                    "name": "CRISTAL"
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -96,7 +120,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
-                    "name": "CRISTAL"
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         }
