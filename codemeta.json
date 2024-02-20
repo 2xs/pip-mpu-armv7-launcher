@@ -5,7 +5,7 @@
     "@type": "SoftwareSourceCode",
     "name": "pip-mpu-armv7-launcher",
     "description": "This repository contains an example that illustrates the creation and deletion of a child partition, as well as the transfer of execution flow from the root partition to the child partition.\r\n\r\nFor more information, see Getting Started of the pipcore-mpu repository.",
-    "dateCreated": "2024-01-10",
+    "dateCreated": "2024-01-22",
     "datePublished": "2024-02-01",
     "license": [
         "https://spdx.org/licenses/CECILL-2.1"
