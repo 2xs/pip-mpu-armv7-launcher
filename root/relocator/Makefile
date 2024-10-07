@@ -31,6 +31,9 @@
 #  knowledge of the CeCILL license and that you accept its terms.             #
 ###############################################################################
 
+# To build the binary in debug mode, set the DEBUG variable
+#DEBUG           = 1
+
 PREFIX          = arm-none-eabi-
 CC              = $(PREFIX)gcc
 LD              = $(PREFIX)ld
@@ -42,11 +45,14 @@ CFLAGS         += -Werror
 CFLAGS         += -mthumb
 CFLAGS         += -mcpu=cortex-m4
 CFLAGS         += -ffreestanding
-CFLAGS         += -Os
 CFLAGS         += -fno-toplevel-reorder
+ifdef DEBUG
 CFLAGS         += -g3
 CFLAGS         += -ggdb
-
+CFLAGS         += -Og
+else
+CFLAGS         += -Os
+endif
 LDFLAGS         = -Tlink.ld
 
 OBJCOPYFLAGS    = --input-target=elf32-littlearm

@@ -31,6 +31,9 @@
 #  knowledge of the CeCILL license and that you accept its terms.             #
 ###############################################################################
 
+# To build the binary in debug mode, set the DEBUG variable
+#DEBUG           = 1
+
 PREFIX          = arm-none-eabi-
 CC              = $(PREFIX)gcc
 LD              = $(PREFIX)gcc
@@ -48,7 +51,13 @@ CFLAGS         += -mpic-register=sl
 CFLAGS         += -mno-pic-data-is-text-relative
 CFLAGS         += -fPIC
 CFLAGS         += -ffreestanding
+ifdef DEBUG
+CFLAGS         += -g3
+CFLAGS         += -ggdb
+CFLAGS         += -Og
+else
 CFLAGS         += -Os
+endif
 CFLAGS         += -Wno-unused-parameter
 CFLAGS         += -Irelocator
 CFLAGS         += -I../include
