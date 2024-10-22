@@ -163,7 +163,7 @@ root_memory_init(interface_t *interface)
 	((vidt_t *)child_vidt_addr)->contexts[0] = child_ctx_addr;
 
 	/* Initialization of the child partition interface */
-	(void)memset(child_itf_addr, 0, sizeof(basicContext_t));
+	(void)memset(child_itf_addr, 0, sizeof(interface_t));
 	((interface_t *)child_itf_addr)->root = interface->unusedRomStart;
 	((interface_t *)child_itf_addr)->unusedRomStart = (void *)((uintptr_t)interface->unusedRomStart + 256);
 	((interface_t *)child_itf_addr)->romEnd = child_fend_addr;
