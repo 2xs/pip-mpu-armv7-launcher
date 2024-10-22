@@ -41,7 +41,7 @@ OBJCOPYFLAGS   += --remove-section '*'
 
 TARGET          = pip-mpu-launcher
 
-all: $(TARGET).elf
+all: $(TARGET).elf symbols.gdb
 
 $(TARGET).elf: $(TARGET).bin
 # objcopy needs the output file not to be empty...
@@ -59,13 +59,18 @@ child.bin: child
 	make -C child all
 	cp child/$@ $@
 
+symbols.gdb:
+	exec relocator/gdbinit.py\
+            $(shell realpath ../pipcore-mpu/pip.elf) > $@
+	cat root/$@ child/$@ >> $@
+
 clean:
 	$(RM) root.bin child.bin
 	$(MAKE) -C root clean
 	$(MAKE) -C child clean
 
 realclean: clean
-	$(RM) $(TARGET).elf $(TARGET).bin
+	$(RM) $(TARGET).elf $(TARGET).bin symbols.gdb
 	$(MAKE) -C root realclean
 	$(MAKE) -C child realclean
 

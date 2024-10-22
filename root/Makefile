@@ -89,7 +89,7 @@ RELSECTIONS     = .rel.rom.ram
 
 TARGET          = root
 
-all: $(TARGET).bin
+all: $(TARGET).bin symbols.gdb
 
 $(TARGET).bin: $(TARGET)-raw.bin padding.bin
 	cat $^ > $@
@@ -106,6 +106,12 @@ symbols.bin: $(TARGET).elf relocator/symbols.py
 
 relocation.bin: $(TARGET).elf relocator/relocation.py
 	exec relocator/relocation.py $< $@ $(RELSECTIONS)
+
+symbols.gdb: relocator/gdbinit.py $(TARGET).elf $(TARGET).bin symbols.bin
+	exec relocator/gdbinit.py\
+            $(shell realpath relocator/crt0.elf)\
+            $(shell realpath $(TARGET).elf)\
+            $$(($$(wc -c < crt0.bin)+$$(wc -c < symbols.bin)+$$(wc -c < relocation.bin))) > $@
 
 partition.bin: $(TARGET).elf
 	$(OBJCOPY) $(OBJCOPYFLAGS) $< $@
@@ -125,7 +131,7 @@ clean:
 	make -C relocator clean
 
 realclean: clean
-	$(RM) $(TARGET).elf $(TARGET).bin
+	$(RM) $(TARGET).elf $(TARGET).bin symbols.gdb
 	make -C relocator realclean
 
 .PHONY: all clean realclean
