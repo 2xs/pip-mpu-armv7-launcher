@@ -67,23 +67,7 @@
  */
 #define ROUND(x, y) (((x) + (y) - 1) & ~((y) - 1))
 
-/**
- * @define  ROOT_BLOCK_ID_1
- *
- * @brief   ID of block number 1 of the root partition
- *
- * @todo    To be corrected once the bug in findBlock has been fixed
- */
-#define ROOT_BLOCK_ID_1 ((void *)0x2000f1ad)
 
-/**
- * @define  ROOT_BLOCK_ID_2
- *
- * @brief   ID of block number 2 of the root partition
- *
- * @todo    To be corrected once the bug in findBlock has been fixed
- */
-#define ROOT_BLOCK_ID_2 ((void *)0x2000f1be)
 
 static void *root_kern_addr;
 static void *child_pd_addr;
@@ -95,6 +79,10 @@ static void *child_itf_addr;
 static void *child_rend_addr;
 static void *child_text_addr;
 static void *child_fend_addr;
+
+static blockOrError foundBlockForRegion0;
+
+static blockOrError foundBlockForRegion2;
 
 static void *root_kern_id;
 static void *child_pd_id;
@@ -132,6 +120,19 @@ memset(void *s, int c, size_t n)
 	return s;
 }
 
+unsigned int round_up_next_pow_2(unsigned int v) {
+	v--;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v++;
+
+	return v;
+}
+
+
 /**
  * @brief   Initialize the root partition memory
  *
@@ -140,7 +141,8 @@ memset(void *s, int c, size_t n)
 static unsigned
 root_memory_init(interface_t *interface)
 {
-	root_kern_addr = (void *)ROUND((uintptr_t)0x20009000, 512);
+	//root_kern_addr = (void *)ROUND((uintptr_t)0x20009000, 512);
+	root_kern_addr = (uintptr_t)(round_up_next_pow_2(interface->unusedRamStart - interface->stackLimit)) + (char *)interface->stackLimit;
 	child_pd_addr = (char *)root_kern_addr + 512;
 	child_kern_addr = (char *)child_pd_addr + 512;
 	/* Child MPU block 0 */
@@ -178,8 +180,13 @@ root_memory_init(interface_t *interface)
 	((basicContext_t *)child_ctx_addr)->frame.xpsr = INITIAL_XPSR;
 	((basicContext_t *)child_ctx_addr)->isBasicFrame = 1;
 
-	/* TODO: to be corrected once the bug in findBlock has been fixed */
-	if ((root_kern_id = Pip_cutMemoryBlock(ROOT_BLOCK_ID_1, root_kern_addr, -1)) == NULL) {
+	if ((Pip_findBlock(interface->partDescBlockId, root_kern_addr, &foundBlockForRegion0)) == 0) {
+		puts(PROGNAME": failed to find block for region 0\n");
+		return 0;
+	}
+
+
+	if ((root_kern_id = Pip_cutMemoryBlock(foundBlockForRegion0.blockAttr.blockentryaddr, root_kern_addr, -1)) == NULL) {
 		puts(PROGNAME": failed to cut a memory block\n");
 		return 0;
 	}
@@ -201,7 +208,7 @@ root_memory_init(interface_t *interface)
  * @brief   Create a child partition
  */
 static unsigned
-root_partition_create(void)
+root_partition_create(interface_t *interface)
 {
 	if ((child_kern_id = Pip_cutMemoryBlock(child_pd_id, child_kern_addr, -1)) == NULL) {
 		puts(PROGNAME": failed to cut a memory block\n");
@@ -223,8 +230,13 @@ root_partition_create(void)
 		return 0;
 	}
 
-	/* TODO: to be corrected once the bug in findBlock has been fixed */
-	if ((child_block2_id = Pip_cutMemoryBlock(ROOT_BLOCK_ID_2, child_text_addr, -1)) == NULL) {
+
+	if ((Pip_findBlock(interface->partDescBlockId, child_text_addr, &foundBlockForRegion2)) == 0) {
+		puts(PROGNAME": failed to find block for region 2\n");
+		return 0;
+	}
+
+	if ((child_block2_id = Pip_cutMemoryBlock(foundBlockForRegion2.blockAttr.blockentryaddr, child_text_addr, -1)) == NULL) {
 		puts(PROGNAME": failed to cut a memory block\n");
 		return 0;
 	}
@@ -338,8 +350,8 @@ root_partition_delete(void)
 		return 0;
 	}
 
-	/* TODO: to be corrected once the bug in findBlock has been fixed */
-	if (Pip_mergeMemoryBlocks(ROOT_BLOCK_ID_2, child_block2_id, -1) == NULL) {
+
+	if (Pip_mergeMemoryBlocks(foundBlockForRegion2.blockAttr.blockentryaddr, child_block2_id, -1) == NULL) {
 		puts(PROGNAME": failed to merge a memory block\n");
 		return 0;
 	}
@@ -384,7 +396,7 @@ root_memory_cleanup(interface_t *interface)
 	}
 
 	/* TODO: to be corrected once the bug in findBlock has been fixed */
-	if (Pip_mergeMemoryBlocks(ROOT_BLOCK_ID_1, root_kern_id, -1) == NULL) {
+	if (Pip_mergeMemoryBlocks(foundBlockForRegion0.blockAttr.blockentryaddr, root_kern_id, -1) == NULL) {
 		puts(PROGNAME": failed to merge a memory block\n");
 		return 0;
 	}
@@ -409,7 +421,7 @@ start(interface_t *interface)
 		goto error;
 	}
 
-	if (root_partition_create() == 0) {
+	if (root_partition_create(interface) == 0) {
 		goto error;
 	}
 
