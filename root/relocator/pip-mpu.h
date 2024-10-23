@@ -49,14 +49,23 @@
  */
 #define VIDT_INTERRUPT_NUMBER 54
 
+/**
+ * \struct block
+ * \brief Block structure
+ */
+typedef struct block
+{
+	void *startAddr ; //!< The block's start address
+	void *endAddr   ; //!< The block's end address (or pointer to the next free slot if it is one)
+}__attribute__((packed)) block_t;
+
 /*!
  * \brief blockAttr structure
  */
 typedef struct blockAttr
 {
     uint32_t* blockentryaddr    ;   //!< Block's local id
-    uint32_t* blockstartaddr    ;   //!< Block's start address
-    uint32_t* blockendaddr      ;   //!< Block's end address
+	block_t blockrange          ;   //!< Block present in memory
     uint32_t read               ;   //!< Read permission bit
     uint32_t write              ;   //!< Write permission bit
     uint32_t exec               ;   //!< Exec permission bit
