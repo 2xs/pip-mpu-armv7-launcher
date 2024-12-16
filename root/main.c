@@ -196,7 +196,7 @@ root_memory_init(interface_t *interface)
 		return 0;
 	}
 
-	if (!Pip_prepare(interface->partDescBlockId, 8, root_kern_id)) {
+	if (!Pip_prepare(interface->partDescBlockId, root_kern_id)) {
 		puts(PROGNAME": failed to prepare the root kernel structure\n");
 		return 0;
 	}
@@ -251,7 +251,7 @@ root_partition_create(interface_t *interface)
 		return 0;
 	}
 
-	if (!Pip_prepare(child_pd_id, 8, child_kern_id)) {
+	if (!Pip_prepare(child_pd_id, child_kern_id)) {
 		puts(PROGNAME": failed to prepare the child kernel structure\n");
 		return 0;
 	}

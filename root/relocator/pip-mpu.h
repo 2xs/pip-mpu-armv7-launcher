@@ -374,23 +374,19 @@ Pip_mergeMemoryBlocks(
 static inline uint32_t
 Pip_prepare(
 	uint32_t *partDescBlockId,
-	int32_t  projectedSlotsNb,
 	uint32_t *requisitionedBlockLocalId
 ) {
 	register uint32_t r0 __asm__("r0");
 	register uint32_t r1 __asm__("r1");
-	register uint32_t r2 __asm__("r2");
 
 	r0 = (uint32_t) partDescBlockId;
-	r1 = (uint32_t) projectedSlotsNb;
-	r2 = (uint32_t) requisitionedBlockLocalId;
+	r1 = (uint32_t) requisitionedBlockLocalId;
 
 	__asm__ volatile
 	(
 		"svc #3"
 		: "+r" (r0)
-		: "r"  (r1),
-		  "r"  (r2)
+		: "r"  (r1)
 		: "memory"
 	);
 
